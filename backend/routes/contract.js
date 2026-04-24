@@ -9,6 +9,7 @@ const { evaluateDrought } = require('../services/oracleLogic');
 const { triggerPayout, getTransactionStatus, generateProofHash } = require('../services/stellarService');
 const { logPayout, recent: recentPayouts } = require('../services/payoutLog');
 const { simulateLimiter } = require('../middleware/rateLimit');
+const { requireAdminToken } = require('../middleware/auth');
 
 const farmsDataPath = path.join(__dirname, '../../data/sitapur_farms.json');
 
@@ -49,7 +50,7 @@ function generateDroughtObservations(farmId, coordinates) {
  *   3. Calls Soroban trigger_payout (falls back to 1-XLM payment on error)
  *   4. Writes an entry to the server-side append-only payout log
  */
-router.post('/farm/:farmId/simulate', simulateLimiter, async (req, res) => {
+router.post('/farm/:farmId/simulate', requireAdminToken, simulateLimiter, async (req, res) => {
   const { farmId } = req.params;
 
   const farm = getFarmById(farmId);

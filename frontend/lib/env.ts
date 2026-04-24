@@ -14,6 +14,14 @@ export const STELLAR_NETWORK = 'testnet';
 
 export const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 
+/**
+ * Shared-secret token sent with write requests (e.g. /simulate).
+ * NOTE: NEXT_PUBLIC_ means this ships in the client bundle — treat it as a
+ * deploy-time floor against casual abuse, not per-user auth. Rate limiting
+ * and the CORS allowlist provide the other two layers.
+ */
+export const ADMIN_API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || '';
+
 export const PAYOUT_PER_FARM_XLM = 100;
 
 export const NDVI_THRESHOLD = 0.35;

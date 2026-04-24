@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { ADMIN_API_TOKEN } from '@/lib/env';
 import type {
   ApiEnvelope,
   FarmStatusResponse,
@@ -6,6 +7,10 @@ import type {
 } from '@/lib/types';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+function authHeaders(): Record<string, string> {
+  return ADMIN_API_TOKEN ? { Authorization: `Bearer ${ADMIN_API_TOKEN}` } : {};
+}
 
 function extractError(err: unknown, fallback: string): string {
   if (err instanceof AxiosError) {
@@ -40,7 +45,7 @@ export async function simulatePayout(farmId: string): Promise<SimulationResult> 
     const { data } = await axios.post<ApiEnvelope<SimulationResult>>(
       `${API_BASE}/api/farm/${farmId}/simulate`,
       {},
-      { timeout: 45000 }
+      { timeout: 45000, headers: authHeaders() }
     );
     if (!data.success || !data.data) {
       throw new Error(data.error || 'Simulation returned no data');

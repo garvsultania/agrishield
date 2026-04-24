@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: agrishield-backend:local
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      STELLAR_NETWORK: ${STELLAR_NETWORK:-testnet}
+      STELLAR_ADMIN_SECRET_KEY: ${STELLAR_ADMIN_SECRET_KEY:-}
+      SOROBAN_CONTRACT_ID: ${SOROBAN_CONTRACT_ID:-CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX}
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3002}
+    ports:
+      - "3001:3001"
+    # Persist the server-side payout audit log between container restarts.
+    volumes:
+      - ./data/payouts.log.jsonl:/app/data/payouts.log.jsonl
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: agrishield-frontend:local
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      # In a compose network, containers reach the backend via the service
+      # name. For client-side fetches we need a URL the BROWSER can resolve —
+      # override this to your host's URL when running beyond localhost.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_SOROBAN_CONTRACT_ID: ${NEXT_PUBLIC_SOROBAN_CONTRACT_ID:-CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX}
+      NEXT_PUBLIC_ADMIN_PUBKEY: ${NEXT_PUBLIC_ADMIN_PUBKEY:-GDEF3Z6T3F5HY6IZ4W7MO4R7OSLPQVMPXVQKC55OVF73MJKBNHC7QUT2}
+      NEXT_PUBLIC_API_TOKEN: ${NEXT_PUBLIC_API_TOKEN:-}
+    ports:
+      - "3002:3002"
+    depends_on:
+      - backend
+    restart: unless-stopped

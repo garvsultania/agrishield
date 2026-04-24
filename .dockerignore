@@ -1,0 +1,39 @@
+# VCS / tooling
+.git
+.github
+.gitignore
+.DS_Store
+
+# Local-only
+.env
+.env.*
+!.env.example
+!.env.local.example
+backend/.env
+frontend/.env.local
+data/payouts.log.jsonl
+
+# Installed deps (will be installed fresh in each build stage)
+node_modules
+backend/node_modules
+frontend/node_modules
+
+# Build artifacts
+.next
+out
+frontend/.next
+frontend/out
+frontend/tsconfig.tsbuildinfo
+target
+contracts/**/target
+
+# Tests + local junk
+coverage
+.vitest-result.json
+frontend/_legacy
+.claude
+scripts
+
+# Editor
+.vscode
+.idea

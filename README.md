@@ -97,19 +97,46 @@ cached 24h afterwards.
 ### Environment variables
 
 ```bash
-# backend/.env — all optional; backend auto-generates + friendbot-funds an
-# admin keypair on first run if STELLAR_ADMIN_SECRET_KEY is unset
+# backend/.env — everything here is optional for a local demo
 STELLAR_ADMIN_SECRET_KEY=S...                  # must match the key the pools were bound to
 STELLAR_NETWORK=testnet
 SOROBAN_CONTRACT_ID=CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+
+# Auth — if set, /simulate requires Authorization: Bearer <token>.
+# Unset in dev → simulate is open (server logs a warning on boot).
+ADMIN_API_TOKEN=
+
+# CORS — comma-separated allowlist. localhost:3000/3002 are always permitted
+# in dev. Set this to your deployed dashboard origin in prod.
+CORS_ORIGINS=
+
 PORT=3001
+NODE_ENV=development
 
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_SOROBAN_CONTRACT_ID=CBQ3QTCA...    # override to point at your own contract
 NEXT_PUBLIC_ADMIN_PUBKEY=GDEF3Z6T...
+NEXT_PUBLIC_API_TOKEN=                         # must match backend ADMIN_API_TOKEN
 ```
+
+### Auth, CORS, and shutdown (what hardens `/simulate`)
+
+- **Bearer auth on `/simulate`** — set `ADMIN_API_TOKEN` in `backend/.env` and
+  the same value as `NEXT_PUBLIC_API_TOKEN` in `frontend/.env.local`. The
+  dashboard will include `Authorization: Bearer <token>` automatically. Leave
+  both unset in dev to keep the endpoint open.
+- **CORS allowlist** — requests from origins outside `CORS_ORIGINS` (plus
+  localhost:3000/3002 in dev) are rejected with `403`.
+- **Rate limit** — `/simulate` is capped at 10 req/min per IP; read endpoints
+  at 240 req/min per IP.
+- **Graceful shutdown** — the server traps `SIGTERM`/`SIGINT`, drains
+  in-flight requests for up to 10 s, then exits. Safe for Docker/k8s rolling
+  deploys.
+
+These are deploy-time floors, not per-user auth — treat them as layered
+defense against casual abuse.
 
 ## Deploy your own contract instance
 
@@ -177,13 +204,43 @@ All responses follow the envelope format:
 - Command palette (`⌘K`), help glossary (`?`), mobile nav
 - Keyboard shortcuts: `g o/m/f/p/y/a/w`, `t`, `?`, `⌘K`
 
+## Deploy
+
+Both services ship Dockerfiles that build standalone images. Single-host
+deploy via the included compose file:
+
+```bash
+# Bring both services up on :3001 (backend) and :3002 (frontend)
+docker compose up --build
+
+# Populate a .env at the repo root first if you want to override:
+#   ADMIN_API_TOKEN, CORS_ORIGINS, STELLAR_ADMIN_SECRET_KEY, NEXT_PUBLIC_API_TOKEN, …
+```
+
+- [`backend/Dockerfile`](backend/Dockerfile) — `node:20-alpine`, non-root
+  user, healthcheck against `/health`, runs `node server.js` directly so
+  SIGTERM reaches PID 1 for graceful shutdown.
+- [`frontend/Dockerfile`](frontend/Dockerfile) — three-stage build using
+  Next.js standalone output. Needs `NEXT_OUTPUT_STANDALONE=true` at build
+  time (set in the Dockerfile); local `npm run dev` is unaffected.
+
+The images are portable — any target that runs Docker (Fly.io, Railway,
+Render, Kubernetes, plain VMs) will work. GitHub Actions CI
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs tests and
+smoke-builds both images on every PR.
+
 ## Tests
 
 ```bash
 npm test                 # backend + frontend
-npm run test:backend     # 30/30 passing
+npm run test:backend     # 38/38 passing
 npm run test:frontend    # 64/64 passing
 ```
+
+CI (GitHub Actions) runs on push to `main` and on every PR:
+- **backend**: `npm test` on Node 20
+- **frontend**: `tsc --noEmit` + `npm test` on Node 20
+- **docker-build**: smoke-builds both images (no push)
 
 ## Repo layout
 
