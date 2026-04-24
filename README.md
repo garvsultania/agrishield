@@ -1,159 +1,226 @@
 # AgriShield — Parametric Crop Insurance on Stellar
 
-AgriShield is a parametric crop insurance platform for smallholder farmers in Sitapur, UP, India. It monitors real-time satellite vegetation data (NDVI) and rainfall from Sentinel-2, automatically evaluates drought conditions through an on-chain oracle, and triggers instant XLM payouts to farmers' Stellar wallets via a Soroban smart contract — with no claim filing, no adjuster, and settlement in seconds.
+Satellite-driven drought oracle for smallholder farmers in Sitapur, UP, India.
+Real Sentinel-2 NDVI + real rainfall → threshold evaluation → signed Soroban
+smart-contract payout on Stellar testnet. No claim filing, no adjuster,
+settlement in seconds.
+
+![Stellar testnet](https://img.shields.io/badge/Stellar-testnet-A78BFA)
+![Contract](https://img.shields.io/badge/Soroban-CBQ3QTCA…FPLD7XLX-84CC16)
+![Tests](https://img.shields.io/badge/tests-94%20passing-22C55E)
+
+## Live deployment
+
+- **Contract (Stellar testnet):** [`CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX`](https://stellar.expert/explorer/testnet/contract/CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX)
+- **Deploy tx:** [`cee44f72…`](https://stellar.expert/explorer/testnet/tx/cee44f726a32c276b988e05e90c5be0a6738cbfa56ecf8d235fde57bed70beaf)
+- **WASM hash:** `6763044e9bb0c8445c844258e00f405526e33785b618e7e81e4a595f364efe7f`
+- **Pools initialized:** 5 × 100 XLM (one per farm, admin-bound, on-chain
+  double-spend protected)
+- **Recent real payouts:**
+  [`786d3fef…` (SITAPUR_002)](https://stellar.expert/explorer/testnet/tx/786d3fefe9d88c83a3fffb88b3569bba3e51b5256046ff5ef22e5e1ec87c6627)
+  · [`c2199647…` (SITAPUR_001)](https://stellar.expert/explorer/testnet/tx/c219964722831cdb9156d8ec00b838156dc594e60f0cdf90548afd7a86be1f35)
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        AgriShield System                            │
-└─────────────────────────────────────────────────────────────────────┘
-
-  Sentinel-2 API          Oracle Logic          Soroban Contract
-  (satellite NDVI)  ───►  (evaluateDrought)  ──► (trigger_payout)
-       │                        │                      │
-       │  NDVI < 0.35           │  proof_hash          │  emit PAYOUT
-       │  Rainfall < 10mm       │  + confidence        │  event
-       │                        │                      │
-       ▼                        ▼                      ▼
-  ┌─────────┐            ┌──────────────┐      ┌──────────────────┐
-  │  Mock   │            │ Express API  │      │  Stellar Testnet │
-  │  Data   │◄───────────│  :3001       │─────►│  (XLM Payment)   │
-  │  (JSON) │            │              │      │                  │
-  └─────────┘            └──────────────┘      └──────────────────┘
-                                │                      │
-                                ▼                      ▼
-                         ┌──────────────┐      ┌──────────────────┐
-                         │  Next.js UI  │      │   UPI / SMS      │
-                         │  :3000       │      │  Notification    │
-                         │  (Farm Map)  │      │  (Future)        │
-                         └──────────────┘      └──────────────────┘
+  Microsoft Planetary Computer        Open-Meteo              Soroban Contract
+  (Sentinel-2 L2A, COG range reads)   (daily precipitation)   (parametric_trigger)
+       │                                   │                          │
+       │  NDVI 0.11 (real, 7/14 d)         │  rainfall_mm (14/14 d)   │  is_paid / get_pool
+       │  cloud-filtered <30%              │  keyless, 10-min cache   │  INIT / PAYOUT / PROOF
+       ▼                                   ▼                          ▼
+  ┌───────────────────────────────────────────────────────────┐  ┌─────────────────────┐
+  │                   Express API :3001                       │  │  Stellar testnet    │
+  │  observationService · oracleLogic · stellarService        │──│  Horizon + Soroban  │
+  │  payoutLog (JSONL) · sorobanReadService · systemHealth    │  │  RPC                │
+  │  rate limit (10/min IP on /simulate)                      │  │                     │
+  └───────────────────────────────────────────────────────────┘  └─────────────────────┘
+       │                                                                 │
+       ▼                                                                 ▼
+  ┌────────────────────────────────────────────────────────────────────────────────────┐
+  │                          Next.js 14 app-router dashboard :3002                     │
+  │  /overview  /map  /farms  /pools  /payouts  /analytics  /wallet                    │
+  │  per-signal provenance chips · merged payout feed · live system health             │
+  └────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## What is Real vs Mocked
+## What's real vs mock
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Farm polygons (Sitapur, UP) | Real | Actual GPS coordinates near 27.57°N, 80.68°E |
-| Historical NDVI data | Mock | 14-day synthetic dataset; farms 001/002 have drought conditions |
-| Rainfall data | Mock | Simulated; real source would be ERA5 or IMD |
-| Sentinel-2 API | Optional | Set `SENTINEL_HUB_API_KEY` to use real satellite data |
-| Oracle logic | Real | Actual NDVI/rainfall threshold evaluation |
-| Stellar XLM payment | Real (testnet) | Actual on-chain transactions on Stellar testnet |
-| Soroban contract | Real code | Compiled + deployed separately; falls back to XLM payment |
-| UPI/SMS notification | Placeholder | Architecture shown; not implemented in MVP |
+| Signal | Source | Coverage |
+|---|---|---|
+| **NDVI** | Microsoft Planetary Computer Sentinel-2 L2A (COG range reads, 10m res) | Real on ~7/14 days per farm; mock fallback when no cloud-free scene within ±2 days |
+| **Rainfall** | Open-Meteo daily precipitation_sum (keyless, 10-min cache) | Real 14/14 days per farm |
+| **Oracle thresholds** | Deterministic logic in `oracleLogic.js` | Real |
+| **Pool state (`is_paid`)** | Live Soroban RPC read — no localStorage trust | Real |
+| **Contract events (INIT / PAYOUT / PROOF)** | Live Soroban RPC `getEvents` | Real — ~24h retention |
+| **Admin XLM balance** | Live Horizon account lookup | Real |
+| **Payout transactions** | Soroban `trigger_payout`, XLM-payment fallback | Real (testnet) |
+| **Payout audit log** | Merged across server JSONL + localStorage + on-chain events | Real |
+| Soil moisture | Static JSON, dates rebased rolling | Mock |
+| Farmer identities + farm polygons | Static JSON | Mock (real parcels would need OSM / partner data) |
 
-## Drought Thresholds
+## Drought thresholds
 
 ```
-NDVI Threshold    = 0.35   (Normalized Difference Vegetation Index)
-Rainfall Threshold = 10mm  (daily rainfall)
+NDVI ceiling       = 0.35   (NDVI < 0.35 on ALL 14 days)
+Rainfall ceiling   = 10mm   (daily rainfall < 10mm on ALL 14 days)
+Observation window = 14 days, rolling
+Trigger            = both conditions must hold every day (AND)
 
-Trigger condition: NDVI < 0.35 AND rainfall < 10mm for ALL 14 consecutive days
-
-Confidence levels:
-  HIGH   → both averages exceed threshold by >20% (avg NDVI < 0.28, avg rain < 8mm)
-  MEDIUM → thresholds met but not exceeded by 20%
-  LOW    → conditions not fully met
+Confidence:
+  HIGH   — both averages exceed threshold by ≥20%  (avg NDVI < 0.28 AND avg rain < 8mm)
+  MEDIUM — thresholds met but not by 20%
+  LOW    — thresholds not fully met
 ```
 
-NDVI measures vegetation health from satellite imagery (-1 to +1):
-- 0.6–0.9 = dense healthy vegetation
-- 0.35–0.6 = moderate/sparse vegetation
-- < 0.35 = stressed/dying crops or bare soil (drought indicator)
-
-## Setup Instructions
-
-### Prerequisites
-- Node.js 18+
-- npm 9+
-
-### 1. Clone and install dependencies
+## Quick start
 
 ```bash
-# Install backend dependencies
-cd backend
-npm install
+git clone https://github.com/garvsultania/agrishield.git
+cd agrishield
+npm run install:all          # installs backend + frontend deps
 
-# Install frontend dependencies
-cd ../frontend
-npm install
+# Terminal 1 — backend
+npm run dev:backend          # Express API on :3001
+
+# Terminal 2 — frontend
+npm run dev:frontend         # Dashboard on :3002
+
+open http://localhost:3002
 ```
 
-### 2. Configure environment variables
+Default `backend/.env` values (baked into `lib/env.ts`) point at the live
+testnet contract, so you can see the demo end-to-end without deploying
+anything. First `/status` call per farm takes ~15s (cold MPC Sentinel-2 read);
+cached 24h afterwards.
+
+### Environment variables
 
 ```bash
-# Backend
-cp backend/.env.example backend/.env
-# Edit backend/.env — all vars are optional for demo
+# backend/.env — all optional; backend auto-generates + friendbot-funds an
+# admin keypair on first run if STELLAR_ADMIN_SECRET_KEY is unset
+STELLAR_ADMIN_SECRET_KEY=S...                  # must match the key the pools were bound to
+STELLAR_NETWORK=testnet
+SOROBAN_CONTRACT_ID=CBQ3QTCA2552XXBVJCKVRWTRMNHMYAAJC6PR4N5IXIYNVJCQFPLD7XLX
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+PORT=3001
 
-# Frontend
-cp frontend/.env.local.example frontend/.env.local
-# NEXT_PUBLIC_API_URL defaults to http://localhost:3001
+# frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_SOROBAN_CONTRACT_ID=CBQ3QTCA...    # override to point at your own contract
+NEXT_PUBLIC_ADMIN_PUBKEY=GDEF3Z6T...
 ```
 
-### 3. Run the backend
+## Deploy your own contract instance
+
+The default `SOROBAN_CONTRACT_ID` is our live testnet deployment. To stand up
+your own:
 
 ```bash
-cd backend
-npm start
-# Server starts on http://localhost:3001
+npm run deploy:contract
 ```
 
-### 4. Run the frontend
+The script [`scripts/deploy-contract.sh`](scripts/deploy-contract.sh):
+
+1. Checks `rustup`, `stellar` CLI, `jq`, and the `wasm32v1-none` target
+2. Creates or reuses a `stellar keys` identity named `agri-admin`
+3. Funds it via Stellar friendbot
+4. Builds the contract (`stellar contract build`)
+5. Deploys to testnet
+6. Initializes all 5 pools with 100 XLM each
+7. Writes `STELLAR_ADMIN_SECRET_KEY` + `SOROBAN_CONTRACT_ID` back to
+   `backend/.env`
+
+Total time ~2 minutes. Cost: $0 (friendbot-funded testnet).
+
+Manual equivalent:
 
 ```bash
-cd frontend
-npm run dev
-# Dashboard available at http://localhost:3000
-```
-
-### 5. (Optional) Configure Stellar
-
-The backend auto-generates and funds a Stellar testnet keypair via Friendbot if no key is set.
-To use a specific key:
-
-```bash
-# In backend/.env
-STELLAR_ADMIN_SECRET_KEY=S...  # Your testnet secret key
-```
-
-## Testnet Contract
-
-**Testnet Contract ID: TBD — deploy with `npm run deploy:contract`**
-
-To deploy the Soroban contract manually:
-```bash
-# Requires Rust + soroban-cli installed
 cd contracts/parametric_trigger
-cargo build --target wasm32-unknown-unknown --release
-soroban contract deploy --wasm target/wasm32-unknown-unknown/release/parametric_trigger.wasm \
-  --network testnet --source <YOUR_KEYPAIR>
+stellar contract build
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/parametric_trigger.wasm \
+  --source agri-admin --network testnet
 ```
 
-## Demo Flow (9-Step Judge Flow)
-
-1. **Open dashboard** at http://localhost:3000 — map loads with 5 Sitapur farms
-2. **Observe farm colors** — SITAPUR_001 and SITAPUR_002 show red (drought); others show green (healthy)
-3. **Click SITAPUR_001** on the map to select it
-4. **Read status badge** — "DROUGHT DETECTED — NDVI 0.210, Rainfall 0.0mm" with HIGH confidence
-5. **Inspect proof of loss** — 14-day window shown, avg NDVI 0.254, avg rainfall 0.8mm
-6. **Click "Simulate Climate Event & Trigger Payout"** button
-7. **Watch loading state** — oracle evaluates conditions, Stellar transaction submitted
-8. **Success state shows** — transaction hash + clickable stellar.expert link
-9. **Verify on-chain** — click the explorer link to see the XLM payment on Stellar testnet
-
-## API Reference
+## API reference
 
 ```
-GET  /health                          — Backend health check
+GET  /health                          — Process liveness
+GET  /api/health/system               — Aggregated probe: Horizon, Soroban RPC, admin balance, contract config
 GET  /api/farms                       — List all 5 farms
-GET  /api/farm/:farmId/status         — Get farm drought status (14-day evaluation)
-POST /api/farm/:farmId/simulate       — Simulate drought + trigger payout
-GET  /api/transaction/:txHash         — Check Stellar transaction status
+GET  /api/farm/:farmId/status         — 14-day evaluation + per-day provenance
+POST /api/farm/:farmId/simulate       — Fire a Soroban trigger_payout (rate-limited, real tx)
+GET  /api/transaction/:txHash         — Horizon lookup for a tx
+GET  /api/contract/is-paid            — Ground-truth paid-state for all farms (RPC read)
+GET  /api/contract/is-paid/:farmId    — Same, single-farm
+GET  /api/contract/events             — Recent INIT/PAYOUT/PROOF events via RPC getEvents
+GET  /api/payouts                     — Server-side audit log (cross-device)
 ```
 
 All responses follow the envelope format:
+
 ```json
 { "success": true, "data": { ... }, "error": null }
 ```
+
+## Frontend
+
+7 routes: **overview · satellite map · farms · pools · payouts · analytics · wallet**
+
+- Deep-linkable farm drawer (`?farm=SITAPUR_002`) with prev/next
+- ESRI satellite map with fly-to-on-select + legend
+- Per-signal provenance chips — `NDVI · Sentinel-2 · 7/14 d`, `Rain · Open-Meteo · 14/14 d`
+- Merged payout feed across localStorage + server log + on-chain events, deduped by tx hash
+- System health badge (Horizon + Soroban RPC latency + admin balance)
+- Dark / light theme with pastel glass cards
+- Command palette (`⌘K`), help glossary (`?`), mobile nav
+- Keyboard shortcuts: `g o/m/f/p/y/a/w`, `t`, `?`, `⌘K`
+
+## Tests
+
+```bash
+npm test                 # backend + frontend
+npm run test:backend     # 30/30 passing
+npm run test:frontend    # 64/64 passing
+```
+
+## Repo layout
+
+```
+├── backend/                       # Express API
+│   ├── services/                  # oracle, stellar, openMeteo, planetaryComputer,
+│   │                              # sorobanRead, systemHealth, payoutLog, cache
+│   ├── routes/                    # satellite, contract, contractState, health
+│   ├── middleware/                # rateLimit
+│   └── tests/                     # Vitest (ESM)
+├── frontend/                      # Next.js 14 app router + TypeScript + Tailwind
+│   ├── app/(dashboard)/           # all 7 routes
+│   ├── components/ui/             # shadcn-pattern primitives
+│   └── lib/                       # api, env, types, horizon, csv, timeago, payouts-store
+├── contracts/parametric_trigger/  # Rust Soroban source
+├── data/
+│   ├── sitapur_farms.json         # 5 farm metadata entries
+│   └── historical_ndvi.json       # mock NDVI seed (rebased rolling at read time)
+├── scripts/
+│   └── deploy-contract.sh         # one-shot testnet deploy + pool init
+└── package.json                   # root: deploy:contract, dev:*, install:all, test
+```
+
+## Known limitations
+
+See [frontend/DEFERRED.md](frontend/DEFERRED.md) for UI items explicitly not
+shipped. Backend deferred items:
+
+- **NDVI gaps (7/14 days mock)** — Sentinel-2 revisits every ~5 days; gap
+  days could be filled by temporal interpolation between surrounding real
+  values. Today they fall back to mock.
+- **Mainnet deploy** — testnet-only. Mainnet stand-up would cost ~510 XLM
+  (contract upload + deploy + 5 pools × 100 XLM) plus real farmer onboarding.
+- **Auth** — none. `/simulate` is unauthenticated; rate-limited per IP.
+- **Real farmer partnerships** — demo keypairs stand in for actual farmer
+  wallets.
+
+## License
+
+MIT
