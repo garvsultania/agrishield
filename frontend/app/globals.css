@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Light / glass palette (reference: frosted cards over warm gradient) ── */
+    --background: 220 30% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 222 47% 11%;
+
+    /* Light mode: pastel lime + pastel violet with darker readable text */
+    --lime: 76 68% 86%;
+    --lime-foreground: 76 70% 20%;
+    --violet: 262 72% 92%;
+    --violet-foreground: 262 70% 32%;
+    --success: 142 71% 38%;
+    --warn: 38 92% 45%;
+    --danger: 0 78% 55%;
+
+    --radius: 0.875rem;
+
+    /* Ambient gradient — peach → pink → sky, matches the frosted reference */
+    --page-gradient:
+      radial-gradient(1200px 700px at -5% -20%, hsl(24 100% 86% / 0.6), transparent 55%),
+      radial-gradient(1100px 800px at 110% 10%, hsl(330 100% 88% / 0.5), transparent 55%),
+      radial-gradient(1000px 900px at 50% 120%, hsl(215 100% 88% / 0.55), transparent 55%),
+      linear-gradient(180deg, hsl(220 30% 98%), hsl(220 30% 96%));
+
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.75);
+    --glass-inner: rgba(255, 255, 255, 0.4);
+    --map-bg: hsl(220 20% 92%);
+    --tooltip-bg: #ffffff;
+    --tooltip-border: hsl(220 13% 88%);
+    --tooltip-text: hsl(222 47% 11%);
+    --tooltip-muted: hsl(220 9% 46%);
+  }
+
+  .dark {
+    /* ── Dark palette (reference: black canvas, lime accent, violet highlights) ── */
+    --background: 240 10% 4%;
+    --foreground: 210 20% 96%;
+
+    --card: 240 10% 7%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 240 10% 7%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 76 82% 52%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 240 6% 14%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 240 6% 14%;
+    --muted-foreground: 220 9% 65%;
+
+    --accent: 240 6% 14%;
+    --accent-foreground: 210 20% 96%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 20% 96%;
+
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 76 82% 52%;
+
+    --lime: 76 82% 58%;
+    --lime-foreground: 240 10% 4%;
+    --violet: 262 83% 65%;
+    --violet-foreground: 240 10% 4%;
+    --success: 142 71% 55%;
+    --warn: 38 92% 60%;
+    --danger: 0 84% 65%;
+
+    --page-gradient:
+      radial-gradient(1200px 700px at -5% -20%, hsl(262 83% 15% / 0.55), transparent 55%),
+      radial-gradient(1100px 800px at 110% 10%, hsl(76 82% 14% / 0.35), transparent 55%),
+      radial-gradient(900px 900px at 80% 110%, hsl(215 100% 10% / 0.5), transparent 60%),
+      linear-gradient(180deg, hsl(240 10% 4%), hsl(240 10% 3%));
+
+    --glass-bg: rgba(255, 255, 255, 0.035);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-inner: rgba(255, 255, 255, 0.02);
+    --map-bg: hsl(240 10% 3%);
+    --tooltip-bg: hsl(240 10% 9%);
+    --tooltip-border: hsl(240 6% 18%);
+    --tooltip-text: hsl(210 20% 96%);
+    --tooltip-muted: hsl(220 9% 65%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    background: var(--page-gradient);
+    background-attachment: fixed;
+  }
+  body {
+    font-family: var(--font-sans, ui-sans-serif, system-ui);
+    font-feature-settings: 'ss01', 'cv11';
+  }
+}
+
+@layer components {
+  /* ── Glass card — the building block ────────────────────────────────────── */
+  .glass {
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-inner),
+      0 6px 24px rgba(15, 23, 42, 0.06);
+  }
+  .dark .glass {
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-inner),
+      0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Hero — pastel peach→pink→sky in light, rich blue→violet in dark */
+  .hero-gradient {
+    background:
+      radial-gradient(140% 140% at 0% 0%, hsl(24 100% 88% / 0.8), transparent 55%),
+      radial-gradient(140% 140% at 100% 100%, hsl(215 100% 85% / 0.85), transparent 55%),
+      linear-gradient(135deg, hsl(330 100% 92%), hsl(262 82% 90%));
+    color: hsl(240 40% 18%);
+  }
+  .dark .hero-gradient {
+    background: linear-gradient(135deg, hsl(215 100% 60%), hsl(262 83% 55%));
+    color: #0b0d1a;
+  }
+
+  /* Lime card adapts: saturated in dark, pastel in light */
+  .lime-card {
+    background: hsl(var(--lime));
+    color: hsl(var(--lime-foreground));
+  }
+  .dark .lime-card {
+    background: linear-gradient(135deg, hsl(76 82% 60%), hsl(76 82% 52%));
+  }
+
+  /* Violet card — same story */
+  .violet-card {
+    background: hsl(var(--violet));
+    color: hsl(var(--violet-foreground));
+  }
+  .dark .violet-card {
+    background: linear-gradient(135deg, hsl(262 83% 65%), hsl(262 83% 55%));
+    color: hsl(240 10% 4%);
+  }
+
+  /* Shimmering placeholder */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--accent)) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.5s linear infinite;
+  }
+
+  /* Monospace numeric display */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+/* ── Leaflet overrides ──────────────────────────────────────────────────── */
+.leaflet-container {
+  background: var(--map-bg) !important;
+  font-family: inherit;
+}
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: hsl(220 9% 46%) !important;
+  font-size: 10px !important;
+}
+.dark .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: hsl(220 9% 65%) !important;
+}
+.agri-tooltip.leaflet-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.agri-tooltip.leaflet-tooltip:before {
+  display: none !important;
+}

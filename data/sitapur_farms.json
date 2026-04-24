@@ -1,0 +1,47 @@
+[
+  {
+    "farmId": "SITAPUR_001",
+    "farmerName": "Ramesh Kumar",
+    "coordinates": { "lat": 27.5706, "lng": 80.6822 },
+    "polygon": [[27.570, 80.681], [27.571, 80.681], [27.571, 80.683], [27.570, 80.683]],
+    "areaSqKm": 0.5,
+    "cropType": "wheat",
+    "walletAddress": "GDU34N2INDZ2OZS5LLKJFKQGNWT2RIIXJZLYMRVQ44DB4TCFMO56SWG3"
+  },
+  {
+    "farmId": "SITAPUR_002",
+    "farmerName": "Sunita Devi",
+    "coordinates": { "lat": 27.5756, "lng": 80.6872 },
+    "polygon": [[27.575, 80.686], [27.576, 80.686], [27.576, 80.688], [27.575, 80.688]],
+    "areaSqKm": 0.4,
+    "cropType": "wheat",
+    "walletAddress": "GDEFEH3ZEWQXIVHTYIXOAUCFLFGABG6SB5IZBRUAWOWT7MHL7ZHKWYIP"
+  },
+  {
+    "farmId": "SITAPUR_003",
+    "farmerName": "Vijay Singh",
+    "coordinates": { "lat": 27.5656, "lng": 80.6772 },
+    "polygon": [[27.565, 80.676], [27.566, 80.676], [27.566, 80.678], [27.565, 80.678]],
+    "areaSqKm": 0.6,
+    "cropType": "rice",
+    "walletAddress": "GBPOLRGMTQZLXGCKARVIHIEGMRJDNGUOEMTVSRWUFDII56ATGVEWOOKE"
+  },
+  {
+    "farmId": "SITAPUR_004",
+    "farmerName": "Meera Yadav",
+    "coordinates": { "lat": 27.5806, "lng": 80.6922 },
+    "polygon": [[27.580, 80.691], [27.581, 80.691], [27.581, 80.693], [27.580, 80.693]],
+    "areaSqKm": 0.45,
+    "cropType": "sugarcane",
+    "walletAddress": "GCB3PZCSUQXUAOGIB4XJYISCD7G47BNSTIITCX23XKT5YCUS5JA3H23G"
+  },
+  {
+    "farmId": "SITAPUR_005",
+    "farmerName": "Anil Tiwari",
+    "coordinates": { "lat": 27.5606, "lng": 80.6922 },
+    "polygon": [[27.560, 80.691], [27.561, 80.691], [27.561, 80.693], [27.560, 80.693]],
+    "areaSqKm": 0.55,
+    "cropType": "mustard",
+    "walletAddress": "GDQ5RBX6BTP3OHWPITGHUQPBX4NEOZNJ4T2NUUFUCUOBJFUX3WEF3SNJ"
+  }
+]
