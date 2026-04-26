@@ -6,7 +6,10 @@ import type {
   SimulationResult,
 } from '@/lib/types';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Use `??` so an explicit empty string is preserved (same-origin relative,
+// e.g. Vercel multi-service routing /api/* to the backend). `||` would
+// fall back to localhost in that case and break in prod.
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 function authHeaders(): Record<string, string> {
   return ADMIN_API_TOKEN ? { Authorization: `Bearer ${ADMIN_API_TOKEN}` } : {};
