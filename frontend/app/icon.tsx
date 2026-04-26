@@ -4,8 +4,10 @@ export const size = { width: 32, height: 32 };
 export const contentType = 'image/png';
 
 /**
- * Inline favicon — lime square with a white sparkle glyph, matching the
- * header logo tile. No raster asset required.
+ * Inline favicon — lime square with a stylised "A" in dark green. We avoid
+ * non-Latin glyphs (e.g. ✦) because @vercel/og has to dynamically fetch a
+ * Google font for them at build time, which fails behind some proxies and
+ * fails the production build outright.
  */
 export default function Icon() {
   return new ImageResponse(
@@ -20,12 +22,13 @@ export default function Icon() {
           borderRadius: 7,
           background: '#bef264',
           color: '#14532d',
-          fontSize: 20,
+          fontSize: 22,
           fontFamily: 'sans-serif',
-          fontWeight: 800,
+          fontWeight: 900,
+          letterSpacing: '-0.05em',
         }}
       >
-        ✦
+        A
       </div>
     ),
     { ...size }

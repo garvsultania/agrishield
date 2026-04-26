@@ -181,6 +181,10 @@ function Divider() {
 
 const PROVENANCE_STYLES: Record<string, { cls: string; label: string }> = {
   'sentinel-2': { cls: 'border-success/30 bg-success/10 text-success', label: 'Sentinel-2' },
+  'sentinel-2-interp': {
+    cls: 'border-success/25 bg-success/5 text-success/90',
+    label: 'Sentinel-2 (interp)',
+  },
   'open-meteo': { cls: 'border-success/30 bg-success/10 text-success', label: 'Open-Meteo' },
   mock: { cls: 'border-border bg-secondary/60 text-muted-foreground', label: 'Mock' },
 };

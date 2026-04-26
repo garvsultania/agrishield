@@ -30,7 +30,7 @@ export interface DroughtEvaluation {
 }
 
 export type DataSource = 'real' | 'hybrid' | 'mock' | 'sentinel-2' | 'simulated';
-export type NdviSource = 'mock' | 'sentinel-2';
+export type NdviSource = 'mock' | 'sentinel-2' | 'sentinel-2-interp';
 export type RainfallSource = 'mock' | 'open-meteo';
 
 export interface NdviScene {

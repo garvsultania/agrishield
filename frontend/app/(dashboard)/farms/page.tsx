@@ -29,6 +29,14 @@ interface Row {
 }
 
 export default function FarmsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <FarmsPageInner />
+    </React.Suspense>
+  );
+}
+
+function FarmsPageInner() {
   const { statuses, errors, getLastPayout } = useDashboard();
   const { selectedFarmId, openFarm, closeFarm } = useFarmUrlSync();
 

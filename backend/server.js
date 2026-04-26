@@ -9,7 +9,12 @@ const satelliteRoutes = require('./routes/satellite');
 const contractRoutes = require('./routes/contract');
 const contractStateRoutes = require('./routes/contractState');
 const healthRoutes = require('./routes/health');
+const historyRoutes = require('./routes/history');
+const swaggerUi = require('swagger-ui-express');
+const openapiSpec = require('./openapi');
 const { readLimiter } = require('./middleware/rateLimit');
+const logger = require('./services/logger');
+const pinoHttp = require('pino-http');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -59,11 +64,24 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: true, limit: '64kb' }));
 
-app.use((req, _res, next) => {
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+app.use(
+  pinoHttp({
+    logger,
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
+    serializers: {
+      req(req) {
+        return { method: req.method, url: req.url };
+      },
+      res(res) {
+        return { statusCode: res.statusCode };
+      },
+    },
+  })
+);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +89,18 @@ app.use('/api', readLimiter, satelliteRoutes);
 app.use('/api', contractRoutes);
 app.use('/api', readLimiter, contractStateRoutes);
 app.use('/api', readLimiter, healthRoutes);
+app.use('/api', readLimiter, historyRoutes);
+
+// API documentation (Swagger UI)
+app.get('/api/openapi.json', (_req, res) => res.json(openapiSpec));
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, {
+    customSiteTitle: 'AgriShield API',
+    customCss: '.swagger-ui .topbar { display: none }',
+  })
+);
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -102,12 +132,11 @@ app.use((_req, res) => {
 });
 
 // eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
+app.use((err, req, res, _next) => {
   if (err && err.message && err.message.startsWith('CORS:')) {
     return res.status(403).json({ success: false, data: null, error: err.message });
   }
-  // eslint-disable-next-line no-console
-  console.error('[server] Unhandled error:', err);
+  (req.log || logger).error({ err }, 'Unhandled error');
   res.status(500).json({ success: false, data: null, error: err.message || 'Internal server error' });
 });
 
@@ -117,39 +146,39 @@ if (process.env.MONGODB_URI) {
   const mongoose = require('mongoose');
   mongoose
     .connect(process.env.MONGODB_URI)
-    .then(() => console.log('[server] MongoDB connected'))
-    .catch((err) => console.warn('[server] MongoDB connection failed:', err.message));
+    .then(() => logger.info('MongoDB connected'))
+    .catch((err) => logger.warn({ err: err.message }, 'MongoDB connection failed'));
 } else if (NODE_ENV !== 'test') {
-  console.warn('[server] MONGODB_URI not set — running without a DB (farm data loaded from JSON files).');
+  logger.info('MONGODB_URI not set — farm data loaded from JSON files');
 }
 
 // ─── Boot summary + graceful shutdown ─────────────────────────────────────────
 
 function bootSummary() {
-  console.log(`[server] AgriShield backend running on http://localhost:${PORT}  (env=${NODE_ENV})`);
-  console.log(`[server] Health: http://localhost:${PORT}/health`);
-  console.log(`[server] API base: http://localhost:${PORT}/api`);
+  logger.info({ port: PORT, env: NODE_ENV }, `AgriShield backend listening on http://localhost:${PORT}`);
 
   if (allowList.length === 0) {
-    console.warn('[server] CORS: no origins allowed — set CORS_ORIGINS to admit your frontend.');
+    logger.warn('CORS: no origins allowed — set CORS_ORIGINS to admit your frontend');
   } else {
-    console.log(`[server] CORS allowlist: ${allowList.join(', ')}`);
+    logger.info({ origins: allowList }, 'CORS allowlist');
   }
 
   if (!process.env.ADMIN_API_TOKEN) {
-    console.warn('[server] AUTH: ADMIN_API_TOKEN is not set — /simulate is unauthenticated. OK in dev, DO NOT ship to prod.');
+    logger.warn('AUTH: ADMIN_API_TOKEN is not set — /simulate is unauthenticated. OK in dev, DO NOT ship to prod.');
   } else {
-    console.log('[server] AUTH: ADMIN_API_TOKEN configured — /simulate requires Bearer auth.');
+    logger.info('AUTH: ADMIN_API_TOKEN configured — /simulate requires Bearer auth');
   }
 
   if (!process.env.STELLAR_ADMIN_SECRET_KEY) {
-    console.log('[server] STELLAR: no admin key set — will friendbot-fund a fresh testnet keypair on first payout.');
+    logger.info('STELLAR: no admin key set — will friendbot-fund a fresh testnet keypair on first payout');
   }
 }
 
 let server;
+let schedulerHandle = { stop() {} };
 if (require.main === module || NODE_ENV !== 'test') {
   server = app.listen(PORT, bootSummary);
+  schedulerHandle = require('./services/scheduler').start();
   wireShutdown(server);
 }
 
@@ -159,17 +188,19 @@ function wireShutdown(srv) {
   const graceful = (signal) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(`[server] ${signal} received — draining connections…`);
+    logger.info({ signal }, 'Draining connections for graceful shutdown');
 
     const shutdownTimeout = setTimeout(() => {
-      console.error('[server] Forced exit after 10s drain timeout');
+      logger.error('Forced exit after 10s drain timeout');
       process.exit(1);
     }, 10_000);
     shutdownTimeout.unref();
 
+    try { schedulerHandle.stop(); } catch (e) { logger.warn({ err: e?.message }, 'scheduler stop warning'); }
+
     srv.close((err) => {
       if (err) {
-        console.error('[server] Error closing HTTP server:', err);
+        logger.error({ err }, 'Error closing HTTP server');
         process.exit(1);
       }
       const mongoose = (() => {
@@ -178,9 +209,9 @@ function wireShutdown(srv) {
       Promise.resolve(mongoose && mongoose.connection && mongoose.connection.readyState
         ? mongoose.connection.close()
         : undefined)
-        .catch((e) => console.warn('[server] mongoose close warning:', e?.message))
+        .catch((e) => logger.warn({ err: e?.message }, 'mongoose close warning'))
         .finally(() => {
-          console.log('[server] Clean shutdown complete.');
+          logger.info('Clean shutdown complete');
           process.exit(0);
         });
     });

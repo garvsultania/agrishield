@@ -4,6 +4,7 @@ const axios = require('axios');
 const StellarSdk = require('@stellar/stellar-sdk');
 const { getAdminKeypair } = require('./stellarService');
 const { TtlCache } = require('./cache');
+const { breakerSnapshot } = require('./resilient');
 
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const RPC_URL = process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
@@ -56,7 +57,9 @@ async function snapshot() {
       adminBalance(),
     ]);
     const contractConfigured = Boolean(process.env.SOROBAN_CONTRACT_ID);
-    const allOk = horizon.ok && rpcNode.ok && admin.ok && contractConfigured;
+    const breakers = breakerSnapshot();
+    const anyBreakerOpen = Object.values(breakers).some((b) => b.state === 'open');
+    const allOk = horizon.ok && rpcNode.ok && admin.ok && contractConfigured && !anyBreakerOpen;
     return {
       ok: allOk,
       horizon,
@@ -66,6 +69,7 @@ async function snapshot() {
         configured: contractConfigured,
         id: process.env.SOROBAN_CONTRACT_ID || null,
       },
+      breakers,
       checkedAt: new Date().toISOString(),
     };
   });

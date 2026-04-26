@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { Satellite } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import { farms } from '@/lib/farms-data';
 import { useDashboard } from '@/components/dashboard-provider';
 import { useFarmUrlSync } from '@/components/use-farm-url-sync';
 
-const FarmMap = dynamic(() => import('@/components/farm-map'), {
+const FarmMap = dynamicImport(() => import('@/components/farm-map'), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground">
@@ -27,6 +27,16 @@ const FarmMap = dynamic(() => import('@/components/farm-map'), {
 });
 
 export default function MapPage() {
+  // useSearchParams (called inside useFarmUrlSync) requires a Suspense
+  // boundary to satisfy Next 14's static-prerender bail-out check.
+  return (
+    <React.Suspense fallback={null}>
+      <MapPageInner />
+    </React.Suspense>
+  );
+}
+
+function MapPageInner() {
   const { statuses, errors, loading, lastUpdated } = useDashboard();
   const { selectedFarmId, openFarm, closeFarm } = useFarmUrlSync();
   const drawerOpen = Boolean(selectedFarmId);

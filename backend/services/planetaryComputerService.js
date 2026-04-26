@@ -18,6 +18,8 @@ const axios = require('axios');
 const proj4 = require('proj4');
 const GeoTIFF = require('geotiff');
 const { TtlCache } = require('./cache');
+const { withBreaker, attachAxiosRetry } = require('./resilient');
+const log = require('./logger').child('mpc');
 
 const STAC_SEARCH_URL = 'https://planetarycomputer.microsoft.com/api/stac/v1/search';
 const SIGN_URL = 'https://planetarycomputer.microsoft.com/api/sas/v1/sign';
@@ -26,6 +28,14 @@ const ndviCache = new TtlCache({ defaultTtlMs: 24 * 60 * 60 * 1000, maxEntries: 
 const signCache = new TtlCache({ defaultTtlMs: 30 * 60 * 1000, maxEntries: 200 });
 const SEARCH_TIMEOUT_MS = 20_000;
 const COG_TIMEOUT_MS = 30_000;
+
+const stacClient = attachAxiosRetry(axios.create({ timeout: SEARCH_TIMEOUT_MS }), { retries: 2 });
+const signClient = attachAxiosRetry(axios.create({ timeout: 10_000 }), { retries: 2 });
+const stacBreaker = withBreaker(
+  'mpc-stac',
+  (body) => stacClient.post(STAC_SEARCH_URL, body),
+  { timeout: SEARCH_TIMEOUT_MS + 2_000 }
+);
 
 proj4.defs('EPSG:4326', '+proj=longlat +datum=WGS84 +no_defs');
 
@@ -100,7 +110,8 @@ async function searchScenes({ bbox4326, since, until, maxCloud = 30, limit = 10 
     limit,
     sortby: [{ field: 'properties.datetime', direction: 'desc' }],
   };
-  const { data } = await axios.post(STAC_SEARCH_URL, body, { timeout: SEARCH_TIMEOUT_MS });
+  const response = await stacBreaker.fire(body);
+  const data = response?.data;
   return (data && Array.isArray(data.features)) ? data.features : [];
 }
 
@@ -108,15 +119,13 @@ async function signHref(href) {
   const cached = signCache.get(href);
   if (cached) return cached;
   try {
-    const { data } = await axios.get(SIGN_URL, {
-      params: { href },
-      timeout: 10_000,
-    });
+    const { data } = await signClient.get(SIGN_URL, { params: { href } });
     const signed = (data && data.href) || href;
     signCache.set(href, signed);
     return signed;
-  } catch {
+  } catch (err) {
     // Sentinel-2 blobs are public-read; fall back to unsigned URL
+    log.debug({ err: err?.message }, 'sign failed; falling back to unsigned href');
     return href;
   }
 }

@@ -19,6 +19,14 @@ import { SOROBAN_CONTRACT_ID, PAYOUT_PER_FARM_XLM } from '@/lib/env';
 import { timeAgo } from '@/lib/timeago';
 
 export default function PoolsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <PoolsPageInner />
+    </React.Suspense>
+  );
+}
+
+function PoolsPageInner() {
   const { getLastPayout, statuses, contractPaidSet } = useDashboard();
   const { selectedFarmId, openFarm, closeFarm } = useFarmUrlSync();
 

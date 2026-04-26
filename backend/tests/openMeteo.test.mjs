@@ -1,28 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-
-// Mock axios before requiring the service
-vi.mock('axios');
 const axios = require('axios');
 
 let fetchRainfall14d;
+let fakeGet;
+let createSpy;
 
 beforeEach(() => {
+  fakeGet = vi.fn();
+  const fakeInstance = {
+    get: fakeGet,
+    interceptors: {
+      request: { use: vi.fn(), eject: vi.fn() },
+      response: { use: vi.fn(), eject: vi.fn() },
+    },
+  };
+  // Spy BEFORE requiring the service so its axios.create() returns our fake
+  createSpy = vi.spyOn(axios, 'create').mockReturnValue(fakeInstance);
+
   delete require.cache[require.resolve('../services/openMeteoService')];
   delete require.cache[require.resolve('../services/cache')];
+  delete require.cache[require.resolve('../services/resilient')];
+  delete require.cache[require.resolve('../services/logger')];
   ({ fetchRainfall14d } = require('../services/openMeteoService'));
-  if (axios.get && typeof axios.get.mockReset === 'function') {
-    axios.get.mockReset();
-  } else {
-    axios.get = vi.fn();
-  }
+});
+
+afterEach(() => {
+  createSpy.mockRestore();
 });
 
 describe('openMeteoService.fetchRainfall14d', () => {
   it('returns up to 14 { date, rainfall_mm } entries ordered ascending', async () => {
-    axios.get = vi.fn().mockResolvedValue({
+    fakeGet.mockResolvedValueOnce({
       data: {
         daily: {
           time: Array.from({ length: 14 }, (_, i) => `2026-04-${String(i + 1).padStart(2, '0')}`),
@@ -37,7 +48,7 @@ describe('openMeteoService.fetchRainfall14d', () => {
   });
 
   it('coerces non-finite rainfall entries to 0', async () => {
-    axios.get = vi.fn().mockResolvedValue({
+    fakeGet.mockResolvedValueOnce({
       data: {
         daily: {
           time: ['2026-04-01', '2026-04-02', '2026-04-03'],
@@ -52,8 +63,8 @@ describe('openMeteoService.fetchRainfall14d', () => {
     expect(out[2].rainfall_mm).toBe(0);
   });
 
-  it('propagates upstream errors', async () => {
-    axios.get = vi.fn().mockRejectedValue(new Error('network unreachable'));
-    await expect(fetchRainfall14d({ lat: 3, lng: 4 })).rejects.toThrow(/unreachable/);
-  });
+  it('propagates upstream errors after retries exhaust', async () => {
+    fakeGet.mockRejectedValue(new Error('network unreachable'));
+    await expect(fetchRainfall14d({ lat: 3, lng: 4 })).rejects.toThrow();
+  }, 30_000);
 });

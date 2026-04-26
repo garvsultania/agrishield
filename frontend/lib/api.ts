@@ -27,9 +27,11 @@ function extractError(err: unknown, fallback: string): string {
 
 export async function fetchFarmStatus(farmId: string): Promise<FarmStatusResponse> {
   try {
+    // Cold MPC Sentinel-2 read is ~15s on first call per farm (24h cache);
+    // keep the timeout generous so first-load doesn't render error cards.
     const { data } = await axios.get<ApiEnvelope<FarmStatusResponse>>(
       `${API_BASE}/api/farm/${farmId}/status`,
-      { timeout: 10000 }
+      { timeout: 45000 }
     );
     if (!data.success || !data.data) {
       throw new Error(data.error || 'Farm status returned no data');

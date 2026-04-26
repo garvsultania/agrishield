@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Runtime data (append-only server-side payout audit log)
+# Runtime data (append-only audit logs)
 data/payouts.log.jsonl
+data/contract-events.log.jsonl
 
 # IDE / editor
 .vscode/
